@@ -8,448 +8,650 @@
 namespace yii\base;
 
 use Yii;
-use yii\helpers\FileHelper;
 
 /**
  * Application is the base class for all application classes.
  *
+ * @property \yii\web\AssetManager $assetManager The asset manager application component. This property is
+ * read-only.
+ * @property \yii\rbac\ManagerInterface $authManager The auth manager application component. Null is returned
+ * if auth manager is not configured. This property is read-only.
+ * @property string $basePath The root directory of the application.
+ * @property \yii\caching\Cache $cache The cache application component. Null if the component is not enabled.
+ * This property is read-only.
+ * @property \yii\db\Connection $db The database connection. This property is read-only.
+ * @property \yii\web\ErrorHandler|\yii\console\ErrorHandler $errorHandler The error handler application
+ * component. This property is read-only.
+ * @property \yii\i18n\Formatter $formatter The formatter application component. This property is read-only.
+ * @property \yii\i18n\I18N $i18n The internationalization application component. This property is read-only.
+ * @property \yii\log\Dispatcher $log The log dispatcher application component. This property is read-only.
+ * @property \yii\mail\MailerInterface $mailer The mailer application component. This property is read-only.
+ * @property \yii\web\Request|\yii\console\Request $request The request component. This property is read-only.
+ * @property \yii\web\Response|\yii\console\Response $response The response component. This property is
+ * read-only.
+ * @property string $runtimePath The directory that stores runtime files. Defaults to the "runtime"
+ * subdirectory under [[basePath]].
+ * @property \yii\base\Security $security The security application component. This property is read-only.
+ * @property string $timeZone The time zone used by this application.
+ * @property string $uniqueId The unique ID of the module. This property is read-only.
+ * @property \yii\web\UrlManager $urlManager The URL manager for this application. This property is read-only.
+ * @property string $vendorPath The directory that stores vendor files. Defaults to "vendor" directory under
+ * [[basePath]].
+ * @property View|\yii\web\View $view The view application component that is used to render various view
+ * files. This property is read-only.
+ *
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
-class Application extends Module
+abstract class Application extends Module
 {
-	const EVENT_BEFORE_REQUEST = 'beforeRequest';
-	const EVENT_AFTER_REQUEST = 'afterRequest';
-	/**
-	 * @var string the application name.
-	 */
-	public $name = 'My Application';
-	/**
-	 * @var string the version of this application.
-	 */
-	public $version = '1.0';
-	/**
-	 * @var string the charset currently used for the application.
-	 */
-	public $charset = 'UTF-8';
-	/**
-	 * @var string the language that is meant to be used for end users.
-	 * @see sourceLanguage
-	 */
-	public $language = 'en_US';
-	/**
-	 * @var string the language that the application is written in. This mainly refers to
-	 * the language that the messages and view files are written in.
-	 * @see language
-	 */
-	public $sourceLanguage = 'en_US';
-	/**
-	 * @var array IDs of the components that need to be loaded when the application starts.
-	 */
-	public $preload = array();
-	/**
-	 * @var \yii\web\Controller|\yii\console\Controller the currently active controller instance
-	 */
-	public $controller;
-	/**
-	 * @var mixed the layout that should be applied for views in this application. Defaults to 'main'.
-	 * If this is false, layout will be disabled.
-	 */
-	public $layout = 'main';
+    /**
+     * @event Event an event raised before the application starts to handle a request.
+     */
+    const EVENT_BEFORE_REQUEST = 'beforeRequest';
+    /**
+     * @event Event an event raised after the application successfully handles a request (before the response is sent out).
+     */
+    const EVENT_AFTER_REQUEST = 'afterRequest';
+    /**
+     * Application state used by [[state]]: application just started.
+     */
+    const STATE_BEGIN = 0;
+    /**
+     * Application state used by [[state]]: application is initializing.
+     */
+    const STATE_INIT = 1;
+    /**
+     * Application state used by [[state]]: application is triggering [[EVENT_BEFORE_REQUEST]].
+     */
+    const STATE_BEFORE_REQUEST = 2;
+    /**
+     * Application state used by [[state]]: application is handling the request.
+     */
+    const STATE_HANDLING_REQUEST = 3;
+    /**
+     * Application state used by [[state]]: application is triggering [[EVENT_AFTER_REQUEST]]..
+     */
+    const STATE_AFTER_REQUEST = 4;
+    /**
+     * Application state used by [[state]]: application is about to send response.
+     */
+    const STATE_SENDING_RESPONSE = 5;
+    /**
+     * Application state used by [[state]]: application has ended.
+     */
+    const STATE_END = 6;
 
-	private $_ended = false;
+    /**
+     * @var string the namespace that controller classes are located in.
+     * This namespace will be used to load controller classes by prepending it to the controller class name.
+     * The default namespace is `app\controllers`.
+     *
+     * Please refer to the [guide about class autoloading](guide:concept-autoloading.md) for more details.
+     */
+    public $controllerNamespace = 'app\\controllers';
+    /**
+     * @var string the application name.
+     */
+    public $name = 'My Application';
+    /**
+     * @var string the version of this application.
+     */
+    public $version = '1.0';
+    /**
+     * @var string the charset currently used for the application.
+     */
+    public $charset = 'UTF-8';
+    /**
+     * @var string the language that is meant to be used for end users. It is recommended that you
+     * use [IETF language tags](http://en.wikipedia.org/wiki/IETF_language_tag). For example, `en` stands
+     * for English, while `en-US` stands for English (United States).
+     * @see sourceLanguage
+     */
+    public $language = 'en-US';
+    /**
+     * @var string the language that the application is written in. This mainly refers to
+     * the language that the messages and view files are written in.
+     * @see language
+     */
+    public $sourceLanguage = 'en-US';
+    /**
+     * @var Controller the currently active controller instance
+     */
+    public $controller;
+    /**
+     * @var string|boolean the layout that should be applied for views in this application. Defaults to 'main'.
+     * If this is false, layout will be disabled.
+     */
+    public $layout = 'main';
+    /**
+     * @var string the requested route
+     */
+    public $requestedRoute;
+    /**
+     * @var Action the requested Action. If null, it means the request cannot be resolved into an action.
+     */
+    public $requestedAction;
+    /**
+     * @var array the parameters supplied to the requested action.
+     */
+    public $requestedParams;
+    /**
+     * @var array list of installed Yii extensions. Each array element represents a single extension
+     * with the following structure:
+     *
+     * ~~~
+     * [
+     *     'name' => 'extension name',
+     *     'version' => 'version number',
+     *     'bootstrap' => 'BootstrapClassName',  // optional, may also be a configuration array
+     *     'alias' => [
+     *         '@alias1' => 'to/path1',
+     *         '@alias2' => 'to/path2',
+     *     ],
+     * ]
+     * ~~~
+     *
+     * The "bootstrap" class listed above will be instantiated during the application
+     * [[bootstrap()|bootstrapping process]]. If the class implements [[BootstrapInterface]],
+     * its [[BootstrapInterface::bootstrap()|bootstrap()]] method will be also be called.
+     *
+     * If not set explicitly in the application config, this property will be populated with the contents of
+     * `@vendor/yiisoft/extensions.php`.
+     */
+    public $extensions;
+    /**
+     * @var array list of components that should be run during the application [[bootstrap()|bootstrapping process]].
+     *
+     * Each component may be specified in one of the following formats:
+     *
+     * - an application component ID as specified via [[components]].
+     * - a module ID as specified via [[modules]].
+     * - a class name.
+     * - a configuration array.
+     *
+     * During the bootstrapping process, each component will be instantiated. If the component class
+     * implements [[BootstrapInterface]], its [[BootstrapInterface::bootstrap()|bootstrap()]] method
+     * will be also be called.
+     */
+    public $bootstrap = [];
+    /**
+     * @var integer the current application state during a request handling life cycle.
+     * This property is managed by the application. Do not modify this property.
+     */
+    public $state;
+    /**
+     * @var array list of loaded modules indexed by their class names.
+     */
+    public $loadedModules = [];
 
-	/**
-	 * @var string Used to reserve memory for fatal error handler.
-	 */
-	private $_memoryReserve;
 
-	/**
-	 * Constructor.
-	 * @param array $config name-value pairs that will be used to initialize the object properties.
-	 * Note that the configuration must contain both [[id]] and [[basePath]].
-	 * @throws InvalidConfigException if either [[id]] or [[basePath]] configuration is missing.
-	 */
-	public function __construct($config = array())
-	{
-		Yii::$app = $this;
+    /**
+     * Constructor.
+     * @param array $config name-value pairs that will be used to initialize the object properties.
+     * Note that the configuration must contain both [[id]] and [[basePath]].
+     * @throws InvalidConfigException if either [[id]] or [[basePath]] configuration is missing.
+     */
+    public function __construct($config = [])
+    {
+        Yii::$app = $this;
+        $this->setInstance($this);
 
-		if (!isset($config['id'])) {
-			throw new InvalidConfigException('The "id" configuration is required.');
-		}
+        $this->state = self::STATE_BEGIN;
 
-		if (isset($config['basePath'])) {
-			$this->setBasePath($config['basePath']);
-			Yii::setAlias('@app', $this->getBasePath());
-			unset($config['basePath']);
-		} else {
-			throw new InvalidConfigException('The "basePath" configuration is required.');
-		}
+        $this->preInit($config);
 
-		$this->registerErrorHandlers();
-		$this->registerCoreComponents();
+        $this->registerErrorHandler($config);
 
-		Component::__construct($config);
-	}
+        Component::__construct($config);
+    }
 
-	/**
-	 * Registers error handlers.
-	 */
-	public function registerErrorHandlers()
-	{
-		if (YII_ENABLE_ERROR_HANDLER) {
-			ini_set('display_errors', 0);
-			set_exception_handler(array($this, 'handleException'));
-			set_error_handler(array($this, 'handleError'), error_reporting());
-		}
-	}
+    /**
+     * Pre-initializes the application.
+     * This method is called at the beginning of the application constructor.
+     * It initializes several important application properties.
+     * If you override this method, please make sure you call the parent implementation.
+     * @param array $config the application configuration
+     * @throws InvalidConfigException if either [[id]] or [[basePath]] configuration is missing.
+     */
+    public function preInit(&$config)
+    {
+        if (!isset($config['id'])) {
+            throw new InvalidConfigException('The "id" configuration for the Application is required.');
+        }
+        if (isset($config['basePath'])) {
+            $this->setBasePath($config['basePath']);
+            unset($config['basePath']);
+        } else {
+            throw new InvalidConfigException('The "basePath" configuration for the Application is required.');
+        }
 
-	/**
-	 * Terminates the application.
-	 * This method replaces PHP's exit() function by calling [[afterRequest()]] before exiting.
-	 * @param integer $status exit status (value 0 means normal exit while other values mean abnormal exit).
-	 * @param boolean $exit whether to exit the current request.
-	 * It defaults to true, meaning the PHP's exit() function will be called at the end of this method.
-	 */
-	public function end($status = 0, $exit = true)
-	{
-		if (!$this->_ended) {
-			$this->_ended = true;
-			$this->afterRequest();
-		}
+        if (isset($config['vendorPath'])) {
+            $this->setVendorPath($config['vendorPath']);
+            unset($config['vendorPath']);
+        } else {
+            // set "@vendor"
+            $this->getVendorPath();
+        }
+        if (isset($config['runtimePath'])) {
+            $this->setRuntimePath($config['runtimePath']);
+            unset($config['runtimePath']);
+        } else {
+            // set "@runtime"
+            $this->getRuntimePath();
+        }
 
-		$this->handleFatalError();
+        if (isset($config['timeZone'])) {
+            $this->setTimeZone($config['timeZone']);
+            unset($config['timeZone']);
+        } elseif (!ini_get('date.timezone')) {
+            $this->setTimeZone('UTC');
+        }
 
-		if ($exit) {
-			exit($status);
-		}
-	}
+        // merge core components with custom components
+        foreach ($this->coreComponents() as $id => $component) {
+            if (!isset($config['components'][$id])) {
+                $config['components'][$id] = $component;
+            } elseif (is_array($config['components'][$id]) && !isset($config['components'][$id]['class'])) {
+                $config['components'][$id]['class'] = $component['class'];
+            }
+        }
+    }
 
-	/**
-	 * Runs the application.
-	 * This is the main entrance of an application.
-	 * @return integer the exit status (0 means normal, non-zero values mean abnormal)
-	 */
-	public function run()
-	{
-		$this->beforeRequest();
-		// Allocating twice more than required to display memory exhausted error
-		// in case of trying to allocate last 1 byte while all memory is taken.
-		$this->_memoryReserve = str_repeat('x', 1024 * 256);
-		register_shutdown_function(array($this, 'end'), 0, false);
-		$status = $this->processRequest();
-		$this->afterRequest();
-		return $status;
-	}
+    /**
+     * @inheritdoc
+     */
+    public function init()
+    {
+        $this->state = self::STATE_INIT;
+        $this->bootstrap();
+    }
 
-	/**
-	 * Raises the [[EVENT_BEFORE_REQUEST]] event right BEFORE the application processes the request.
-	 */
-	public function beforeRequest()
-	{
-		$this->trigger(self::EVENT_BEFORE_REQUEST);
-	}
+    /**
+     * Initializes extensions and executes bootstrap components.
+     * This method is called by [[init()]] after the application has been fully configured.
+     * If you override this method, make sure you also call the parent implementation.
+     */
+    protected function bootstrap()
+    {
+        if ($this->extensions === null) {
+            $file = Yii::getAlias('@vendor/yiisoft/extensions.php');
+            $this->extensions = is_file($file) ? include($file) : [];
+        }
+        foreach ($this->extensions as $extension) {
+            if (!empty($extension['alias'])) {
+                foreach ($extension['alias'] as $name => $path) {
+                    Yii::setAlias($name, $path);
+                }
+            }
+            if (isset($extension['bootstrap'])) {
+                $component = Yii::createObject($extension['bootstrap']);
+                if ($component instanceof BootstrapInterface) {
+                    Yii::trace("Bootstrap with " . get_class($component) . '::bootstrap()', __METHOD__);
+                    $component->bootstrap($this);
+                } else {
+                    Yii::trace("Bootstrap with " . get_class($component), __METHOD__);
+                }
+            }
+        }
 
-	/**
-	 * Raises the [[EVENT_AFTER_REQUEST]] event right AFTER the application processes the request.
-	 */
-	public function afterRequest()
-	{
-		$this->trigger(self::EVENT_AFTER_REQUEST);
-	}
+        foreach ($this->bootstrap as $class) {
+            $component = null;
+            if (is_string($class)) {
+                if ($this->has($class)) {
+                    $component = $this->get($class);
+                } elseif ($this->hasModule($class)) {
+                    $component = $this->getModule($class);
+                } elseif (strpos($class, '\\') === false) {
+                    throw new InvalidConfigException("Unknown bootstrapping component ID: $class");
+                }
+            }
+            if (!isset($component)) {
+                $component = Yii::createObject($class);
+            }
 
-	/**
-	 * Processes the request.
-	 * Child classes should override this method with actual request processing logic.
-	 * @return integer the exit status of the controller action (0 means normal, non-zero values mean abnormal)
-	 */
-	public function processRequest()
-	{
-		return 0;
-	}
+            if ($component instanceof BootstrapInterface) {
+                Yii::trace("Bootstrap with " . get_class($component) . '::bootstrap()', __METHOD__);
+                $component->bootstrap($this);
+            } else {
+                Yii::trace("Bootstrap with " . get_class($component), __METHOD__);
+            }
+        }
+    }
 
-	private $_runtimePath;
+    /**
+     * Registers the errorHandler component as a PHP error handler.
+     * @param array $config application config
+     */
+    protected function registerErrorHandler(&$config)
+    {
+        if (YII_ENABLE_ERROR_HANDLER) {
+            if (!isset($config['components']['errorHandler']['class'])) {
+                echo "Error: no errorHandler component is configured.\n";
+                exit(1);
+            }
+            $this->set('errorHandler', $config['components']['errorHandler']);
+            unset($config['components']['errorHandler']);
+            $this->getErrorHandler()->register();
+        }
+    }
 
-	/**
-	 * Returns the directory that stores runtime files.
-	 * @return string the directory that stores runtime files. Defaults to 'protected/runtime'.
-	 */
-	public function getRuntimePath()
-	{
-		if ($this->_runtimePath === null) {
-			$this->setRuntimePath($this->getBasePath() . DIRECTORY_SEPARATOR . 'runtime');
-		}
-		return $this->_runtimePath;
-	}
+    /**
+     * Returns an ID that uniquely identifies this module among all modules within the current application.
+     * Since this is an application instance, it will always return an empty string.
+     * @return string the unique ID of the module.
+     */
+    public function getUniqueId()
+    {
+        return '';
+    }
 
-	/**
-	 * Sets the directory that stores runtime files.
-	 * @param string $path the directory that stores runtime files.
-	 * @throws InvalidConfigException if the directory does not exist or is not writable
-	 */
-	public function setRuntimePath($path)
-	{
-		$path = Yii::getAlias($path);
-		if (is_dir($path) && is_writable($path)) {
-			$this->_runtimePath = $path;
-		} else {
-			throw new InvalidConfigException("Runtime path must be a directory writable by the Web server process: $path");
-		}
-	}
+    /**
+     * Sets the root directory of the application and the @app alias.
+     * This method can only be invoked at the beginning of the constructor.
+     * @param string $path the root directory of the application.
+     * @property string the root directory of the application.
+     * @throws InvalidParamException if the directory does not exist.
+     */
+    public function setBasePath($path)
+    {
+        parent::setBasePath($path);
+        Yii::setAlias('@app', $this->getBasePath());
+    }
 
-	private $_vendorPath;
+    /**
+     * Runs the application.
+     * This is the main entrance of an application.
+     * @return integer the exit status (0 means normal, non-zero values mean abnormal)
+     */
+    public function run()
+    {
+        try {
 
-	/**
-	 * Returns the directory that stores vendor files.
-	 * @return string the directory that stores vendor files. Defaults to 'protected/vendor'.
-	 */
-	public function getVendorPath()
-	{
-		if ($this->_vendorPath === null) {
-			$this->setVendorPath($this->getBasePath() . DIRECTORY_SEPARATOR . 'vendor');
-		}
-		return $this->_vendorPath;
-	}
+            $this->state = self::STATE_BEFORE_REQUEST;
+            $this->trigger(self::EVENT_BEFORE_REQUEST);
 
-	/**
-	 * Sets the directory that stores vendor files.
-	 * @param string $path the directory that stores vendor files.
-	 */
-	public function setVendorPath($path)
-	{
-		$this->_vendorPath = Yii::getAlias($path);
-	}
+            $this->state = self::STATE_HANDLING_REQUEST;
+            $response = $this->handleRequest($this->getRequest());
 
-	/**
-	 * Returns the time zone used by this application.
-	 * This is a simple wrapper of PHP function date_default_timezone_get().
-	 * @return string the time zone used by this application.
-	 * @see http://php.net/manual/en/function.date-default-timezone-get.php
-	 */
-	public function getTimeZone()
-	{
-		return date_default_timezone_get();
-	}
+            $this->state = self::STATE_AFTER_REQUEST;
+            $this->trigger(self::EVENT_AFTER_REQUEST);
 
-	/**
-	 * Sets the time zone used by this application.
-	 * This is a simple wrapper of PHP function date_default_timezone_set().
-	 * @param string $value the time zone used by this application.
-	 * @see http://php.net/manual/en/function.date-default-timezone-set.php
-	 */
-	public function setTimeZone($value)
-	{
-		date_default_timezone_set($value);
-	}
+            $this->state = self::STATE_SENDING_RESPONSE;
+            $response->send();
 
-	/**
-	 * Returns the database connection component.
-	 * @return \yii\db\Connection the database connection
-	 */
-	public function getDb()
-	{
-		return $this->getComponent('db');
-	}
+            $this->state = self::STATE_END;
 
-	/**
-	 * Returns the error handler component.
-	 * @return ErrorHandler the error handler application component.
-	 */
-	public function getErrorHandler()
-	{
-		return $this->getComponent('errorHandler');
-	}
+            return $response->exitStatus;
 
-	/**
-	 * Returns the cache component.
-	 * @return \yii\caching\Cache the cache application component. Null if the component is not enabled.
-	 */
-	public function getCache()
-	{
-		return $this->getComponent('cache');
-	}
+        } catch (ExitException $e) {
 
-	/**
-	 * Returns the request component.
-	 * @return \yii\web\Request|\yii\console\Request the request component
-	 */
-	public function getRequest()
-	{
-		return $this->getComponent('request');
-	}
+            $this->end($e->statusCode, isset($response) ? $response : null);
+            return $e->statusCode;
 
-	/**
-	 * Returns the view object.
-	 * @return View the view object that is used to render various view files.
-	 */
-	public function getView()
-	{
-		return $this->getComponent('view');
-	}
+        }
+    }
 
-	/**
-	 * Returns the URL manager for this application.
-	 * @return \yii\web\UrlManager the URL manager for this application.
-	 */
-	public function getUrlManager()
-	{
-		return $this->getComponent('urlManager');
-	}
+    /**
+     * Handles the specified request.
+     *
+     * This method should return an instance of [[Response]] or its child class
+     * which represents the handling result of the request.
+     *
+     * @param Request $request the request to be handled
+     * @return Response the resulting response
+     */
+    abstract public function handleRequest($request);
 
-	/**
-	 * Returns the internationalization (i18n) component
-	 * @return \yii\i18n\I18N the internationalization component
-	 */
-	public function getI18N()
-	{
-		return $this->getComponent('i18n');
-	}
+    private $_runtimePath;
 
-	/**
-	 * Registers the core application components.
-	 * @see setComponents
-	 */
-	public function registerCoreComponents()
-	{
-		$this->setComponents(array(
-			'errorHandler' => array(
-				'class' => 'yii\base\ErrorHandler',
-			),
-			'i18n' => array(
-				'class' => 'yii\i18n\I18N',
-			),
-			'urlManager' => array(
-				'class' => 'yii\web\UrlManager',
-			),
-			'view' => array(
-				'class' => 'yii\base\View',
-			),
-		));
-	}
+    /**
+     * Returns the directory that stores runtime files.
+     * @return string the directory that stores runtime files.
+     * Defaults to the "runtime" subdirectory under [[basePath]].
+     */
+    public function getRuntimePath()
+    {
+        if ($this->_runtimePath === null) {
+            $this->setRuntimePath($this->getBasePath() . DIRECTORY_SEPARATOR . 'runtime');
+        }
 
-	/**
-	 * Handles uncaught PHP exceptions.
-	 *
-	 * This method is implemented as a PHP exception handler. It requires
-	 * that constant YII_ENABLE_ERROR_HANDLER be defined true.
-	 *
-	 * @param \Exception $exception exception that is not caught
-	 */
-	public function handleException($exception)
-	{
-		// disable error capturing to avoid recursive errors while handling exceptions
-		restore_error_handler();
-		restore_exception_handler();
+        return $this->_runtimePath;
+    }
 
-		try {
-			$this->logException($exception);
+    /**
+     * Sets the directory that stores runtime files.
+     * @param string $path the directory that stores runtime files.
+     */
+    public function setRuntimePath($path)
+    {
+        $this->_runtimePath = Yii::getAlias($path);
+        Yii::setAlias('@runtime', $this->_runtimePath);
+    }
 
-			if (($handler = $this->getErrorHandler()) !== null) {
-				$handler->handle($exception);
-			} else {
-				$this->renderException($exception);
-			}
+    private $_vendorPath;
 
-			$this->end(1);
+    /**
+     * Returns the directory that stores vendor files.
+     * @return string the directory that stores vendor files.
+     * Defaults to "vendor" directory under [[basePath]].
+     */
+    public function getVendorPath()
+    {
+        if ($this->_vendorPath === null) {
+            $this->setVendorPath($this->getBasePath() . DIRECTORY_SEPARATOR . 'vendor');
+        }
 
-		} catch (\Exception $e) {
-			// exception could be thrown in end() or ErrorHandler::handle()
-			$msg = (string)$e;
-			$msg .= "\nPrevious exception:\n";
-			$msg .= (string)$exception;
-			if (YII_DEBUG) {
-				echo $msg;
-			}
-			$msg .= "\n\$_SERVER = " . var_export($_SERVER, true);
-			error_log($msg);
-			exit(1);
-		}
-	}
+        return $this->_vendorPath;
+    }
 
-	/**
-	 * Handles PHP execution errors such as warnings, notices.
-	 *
-	 * This method is used as a PHP error handler. It will simply raise an `ErrorException`.
-	 *
-	 * @param integer $code the level of the error raised
-	 * @param string $message the error message
-	 * @param string $file the filename that the error was raised in
-	 * @param integer $line the line number the error was raised at
-	 *
-	 * @throws ErrorException
-	 */
-	public function handleError($code, $message, $file, $line)
-	{
-		if (error_reporting() !== 0) {
-			$exception = new ErrorException($message, $code, $code, $file, $line);
+    /**
+     * Sets the directory that stores vendor files.
+     * @param string $path the directory that stores vendor files.
+     */
+    public function setVendorPath($path)
+    {
+        $this->_vendorPath = Yii::getAlias($path);
+        Yii::setAlias('@vendor', $this->_vendorPath);
+        Yii::setAlias('@bower', $this->_vendorPath . DIRECTORY_SEPARATOR . 'bower');
+        Yii::setAlias('@npm', $this->_vendorPath . DIRECTORY_SEPARATOR . 'npm');
+    }
 
-			// in case error appeared in __toString method we can't throw any exception
-			$trace = debug_backtrace(false);
-			array_shift($trace);
-			foreach ($trace as $frame) {
-				if ($frame['function'] == '__toString') {
-					$this->handleException($exception);
-				}
-			}
+    /**
+     * Returns the time zone used by this application.
+     * This is a simple wrapper of PHP function date_default_timezone_get().
+     * If time zone is not configured in php.ini or application config,
+     * it will be set to UTC by default.
+     * @return string the time zone used by this application.
+     * @see http://php.net/manual/en/function.date-default-timezone-get.php
+     */
+    public function getTimeZone()
+    {
+        return date_default_timezone_get();
+    }
 
-			throw $exception;
-		}
-	}
+    /**
+     * Sets the time zone used by this application.
+     * This is a simple wrapper of PHP function date_default_timezone_set().
+     * Refer to the [php manual](http://www.php.net/manual/en/timezones.php) for available timezones.
+     * @param string $value the time zone used by this application.
+     * @see http://php.net/manual/en/function.date-default-timezone-set.php
+     */
+    public function setTimeZone($value)
+    {
+        date_default_timezone_set($value);
+    }
 
-	/**
-	 * Handles fatal PHP errors
-	 */
-	public function handleFatalError()
-	{
-		if (YII_ENABLE_ERROR_HANDLER) {
-			$error = error_get_last();
+    /**
+     * Returns the database connection component.
+     * @return \yii\db\Connection the database connection.
+     */
+    public function getDb()
+    {
+        return $this->get('db');
+    }
 
-			if (ErrorException::isFatalError($error)) {
-				unset($this->_memoryReserve);
-				$exception = new ErrorException($error['message'], $error['type'], $error['type'], $error['file'], $error['line']);
-				// use error_log because it's too late to use Yii log
-				error_log($exception);
+    /**
+     * Returns the log dispatcher component.
+     * @return \yii\log\Dispatcher the log dispatcher application component.
+     */
+    public function getLog()
+    {
+        return $this->get('log');
+    }
 
-				if (($handler = $this->getErrorHandler()) !== null) {
-					$handler->handle($exception);
-				} else {
-					$this->renderException($exception);
-				}
+    /**
+     * Returns the error handler component.
+     * @return \yii\web\ErrorHandler|\yii\console\ErrorHandler the error handler application component.
+     */
+    public function getErrorHandler()
+    {
+        return $this->get('errorHandler');
+    }
 
-				exit(1);
-			}
-		}
-	}
+    /**
+     * Returns the cache component.
+     * @return \yii\caching\Cache the cache application component. Null if the component is not enabled.
+     */
+    public function getCache()
+    {
+        return $this->get('cache', false);
+    }
 
-	/**
-	 * Renders an exception without using rich format.
-	 * @param \Exception $exception the exception to be rendered.
-	 */
-	public function renderException($exception)
-	{
-		if ($exception instanceof Exception && ($exception instanceof UserException || !YII_DEBUG)) {
-			$message = $exception->getName() . ': ' . $exception->getMessage();
-		} else {
-			$message = YII_DEBUG ? (string)$exception : 'Error: ' . $exception->getMessage();
-		}
-		if (PHP_SAPI) {
-			echo $message . "\n";
-		} else {
-			echo '<pre>' . htmlspecialchars($message, ENT_QUOTES, $this->charset) . '</pre>';
-		}
-	}
+    /**
+     * Returns the formatter component.
+     * @return \yii\i18n\Formatter the formatter application component.
+     */
+    public function getFormatter()
+    {
+        return $this->get('formatter');
+    }
 
-	// todo: to be polished
-	protected function logException($exception)
-	{
-		$category = get_class($exception);
-		if ($exception instanceof HttpException) {
-			/** @var $exception HttpException */
-			$category .= '\\' . $exception->statusCode;
-		} elseif ($exception instanceof \ErrorException) {
-			/** @var $exception \ErrorException */
-			$category .= '\\' . $exception->getSeverity();
-		}
-		Yii::error((string)$exception, $category);
-	}
+    /**
+     * Returns the request component.
+     * @return \yii\web\Request|\yii\console\Request the request component.
+     */
+    public function getRequest()
+    {
+        return $this->get('request');
+    }
+
+    /**
+     * Returns the response component.
+     * @return \yii\web\Response|\yii\console\Response the response component.
+     */
+    public function getResponse()
+    {
+        return $this->get('response');
+    }
+
+    /**
+     * Returns the view object.
+     * @return View|\yii\web\View the view application component that is used to render various view files.
+     */
+    public function getView()
+    {
+        return $this->get('view');
+    }
+
+    /**
+     * Returns the URL manager for this application.
+     * @return \yii\web\UrlManager the URL manager for this application.
+     */
+    public function getUrlManager()
+    {
+        return $this->get('urlManager');
+    }
+
+    /**
+     * Returns the internationalization (i18n) component
+     * @return \yii\i18n\I18N the internationalization application component.
+     */
+    public function getI18n()
+    {
+        return $this->get('i18n');
+    }
+
+    /**
+     * Returns the mailer component.
+     * @return \yii\mail\MailerInterface the mailer application component.
+     */
+    public function getMailer()
+    {
+        return $this->get('mailer');
+    }
+
+    /**
+     * Returns the auth manager for this application.
+     * @return \yii\rbac\ManagerInterface the auth manager application component.
+     * Null is returned if auth manager is not configured.
+     */
+    public function getAuthManager()
+    {
+        return $this->get('authManager', false);
+    }
+
+    /**
+     * Returns the asset manager.
+     * @return \yii\web\AssetManager the asset manager application component.
+     */
+    public function getAssetManager()
+    {
+        return $this->get('assetManager');
+    }
+
+    /**
+     * Returns the security component.
+     * @return \yii\base\Security the security application component.
+     */
+    public function getSecurity()
+    {
+        return $this->get('security');
+    }
+
+    /**
+     * Returns the configuration of core application components.
+     * @see set()
+     */
+    public function coreComponents()
+    {
+        return [
+            'log' => ['class' => 'yii\log\Dispatcher'],
+            'view' => ['class' => 'yii\web\View'],
+            'formatter' => ['class' => 'yii\i18n\Formatter'],
+            'i18n' => ['class' => 'yii\i18n\I18N'],
+            'mailer' => ['class' => 'yii\swiftmailer\Mailer'],
+            'urlManager' => ['class' => 'yii\web\UrlManager'],
+            'assetManager' => ['class' => 'yii\web\AssetManager'],
+            'security' => ['class' => 'yii\base\Security'],
+        ];
+    }
+
+    /**
+     * Terminates the application.
+     * This method replaces the `exit()` function by ensuring the application life cycle is completed
+     * before terminating the application.
+     * @param integer $status the exit status (value 0 means normal exit while other values mean abnormal exit).
+     * @param Response $response the response to be sent. If not set, the default application [[response]] component will be used.
+     * @throws ExitException if the application is in testing mode
+     */
+    public function end($status = 0, $response = null)
+    {
+        if ($this->state === self::STATE_BEFORE_REQUEST || $this->state === self::STATE_HANDLING_REQUEST) {
+            $this->state = self::STATE_AFTER_REQUEST;
+            $this->trigger(self::EVENT_AFTER_REQUEST);
+        }
+
+        if ($this->state !== self::STATE_SENDING_RESPONSE && $this->state !== self::STATE_END) {
+            $this->state = self::STATE_END;
+            $response = $response ? : $this->getResponse();
+            $response->send();
+        }
+
+        if (YII_ENV_TEST) {
+            throw new ExitException($status);
+        } else {
+            exit($status);
+        }
+    }
 }

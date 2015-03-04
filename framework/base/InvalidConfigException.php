@@ -15,12 +15,11 @@ namespace yii\base;
  */
 class InvalidConfigException extends Exception
 {
-	/**
-	 * @return string the user-friendly name of this exception
-	 */
-	public function getName()
-	{
-		return \Yii::t('yii|Invalid Configuration');
-	}
+    /**
+     * @return string the user-friendly name of this exception
+     */
+    public function getName()
+    {
+        return 'Invalid Configuration';
+    }
 }
-

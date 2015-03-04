@@ -15,11 +15,11 @@ namespace yii\base;
  */
 class Exception extends \Exception
 {
-	/**
-	 * @return string the user-friendly name of this exception
-	 */
-	public function getName()
-	{
-		return \Yii::t('yii|Exception');
-	}
+    /**
+     * @return string the user-friendly name of this exception
+     */
+    public function getName()
+    {
+        return 'Exception';
+    }
 }

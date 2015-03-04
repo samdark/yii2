@@ -13,11 +13,11 @@ namespace yii\db;
  */
 class StaleObjectException extends Exception
 {
-	/**
-	 * @return string the user-friendly name of this exception
-	 */
-	public function getName()
-	{
-		return \Yii::t('yii|Stale Object Exception');
-	}
+    /**
+     * @return string the user-friendly name of this exception
+     */
+    public function getName()
+    {
+        return 'Stale Object Exception';
+    }
 }

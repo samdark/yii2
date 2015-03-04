@@ -8,8 +8,8 @@
 namespace yii\validators;
 
 use Yii;
-use yii\helpers\Html;
-use yii\helpers\JsExpression;
+use yii\base\InvalidConfigException;
+use yii\web\JsExpression;
 use yii\helpers\Json;
 
 /**
@@ -20,102 +20,98 @@ use yii\helpers\Json;
  */
 class EmailValidator extends Validator
 {
-	/**
-	 * @var string the regular expression used to validate the attribute value.
-	 * @see http://www.regular-expressions.info/email.html
-	 */
-	public $pattern = '/^[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/';
-	/**
-	 * @var string the regular expression used to validate email addresses with the name part.
-	 * This property is used only when [[allowName]] is true.
-	 * @see allowName
-	 */
-	public $fullPattern = '/^[^@]*<[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?>$/';
-	/**
-	 * @var boolean whether to allow name in the email address (e.g. "John Smith <john.smith@example.com>"). Defaults to false.
-	 * @see fullPattern
-	 */
-	public $allowName = false;
-	/**
-	 * @var boolean whether to check the MX record for the email address.
-	 * Defaults to false. To enable it, you need to make sure the PHP function 'checkdnsrr'
-	 * exists in your PHP installation.
-	 */
-	public $checkMX = false;
-	/**
-	 * @var boolean whether to check port 25 for the email address.
-	 * Defaults to false.
-	 */
-	public $checkPort = false;
+    /**
+     * @var string the regular expression used to validate the attribute value.
+     * @see http://www.regular-expressions.info/email.html
+     */
+    public $pattern = '/^[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/';
+    /**
+     * @var string the regular expression used to validate email addresses with the name part.
+     * This property is used only when [[allowName]] is true.
+     * @see allowName
+     */
+    public $fullPattern = '/^[^@]*<[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&\'*+\\/=?^_`{|}~-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?>$/';
+    /**
+     * @var boolean whether to allow name in the email address (e.g. "John Smith <john.smith@example.com>"). Defaults to false.
+     * @see fullPattern
+     */
+    public $allowName = false;
+    /**
+     * @var boolean whether to check whether the email's domain exists and has either an A or MX record.
+     * Be aware that this check can fail due to temporary DNS problems even if the email address is
+     * valid and an email would be deliverable. Defaults to false.
+     */
+    public $checkDNS = false;
+    /**
+     * @var boolean whether validation process should take into account IDN (internationalized domain
+     * names). Defaults to false meaning that validation of emails containing IDN will always fail.
+     * Note that in order to use IDN validation you have to install and enable `intl` PHP extension,
+     * otherwise an exception would be thrown.
+     */
+    public $enableIDN = false;
 
-	/**
-	 * Initializes the validator.
-	 */
-	public function init()
-	{
-		parent::init();
-		if ($this->message === null) {
-			$this->message = Yii::t('yii|{attribute} is not a valid email address.');
-		}
-	}
 
-	/**
-	 * Validates the attribute of the object.
-	 * If there is any error, the error message is added to the object.
-	 * @param \yii\base\Model $object the object being validated
-	 * @param string $attribute the attribute being validated
-	 */
-	public function validateAttribute($object, $attribute)
-	{
-		$value = $object->$attribute;
-		if (!$this->validateValue($value)) {
-			$this->addError($object, $attribute, $this->message);
-		}
-	}
+    /**
+     * @inheritdoc
+     */
+    public function init()
+    {
+        parent::init();
+        if ($this->enableIDN && !function_exists('idn_to_ascii')) {
+            throw new InvalidConfigException('In order to use IDN validation intl extension must be installed and enabled.');
+        }
+        if ($this->message === null) {
+            $this->message = Yii::t('yii', '{attribute} is not a valid email address.');
+        }
+    }
 
-	/**
-	 * Validates the given value.
-	 * @param mixed $value the value to be validated.
-	 * @return boolean whether the value is valid.
-	 */
-	public function validateValue($value)
-	{
-		// make sure string length is limited to avoid DOS attacks
-		$valid = is_string($value) && strlen($value) <= 254
-			&& (preg_match($this->pattern, $value) || $this->allowName && preg_match($this->fullPattern, $value));
-		if ($valid) {
-			$domain = rtrim(substr($value, strpos($value, '@') + 1), '>');
-			if ($this->checkMX && function_exists('checkdnsrr')) {
-				$valid = checkdnsrr($domain, 'MX');
-			}
-			if ($valid && $this->checkPort && function_exists('fsockopen')) {
-				$valid = fsockopen($domain, 25) !== false;
-			}
-		}
-		return $valid;
-	}
+    /**
+     * @inheritdoc
+     */
+    protected function validateValue($value)
+    {
+        // make sure string length is limited to avoid DOS attacks
+        if (!is_string($value) || strlen($value) >= 320) {
+            $valid = false;
+        } elseif (!preg_match('/^(.*<?)(.*)@(.*)(>?)$/', $value, $matches)) {
+            $valid = false;
+        } else {
+            $domain = $matches[3];
+            if ($this->enableIDN) {
+                $value = $matches[1] . idn_to_ascii($matches[2]) . '@' . idn_to_ascii($domain) . $matches[4];
+            }
+            $valid = preg_match($this->pattern, $value) || $this->allowName && preg_match($this->fullPattern, $value);
+            if ($valid && $this->checkDNS) {
+                $valid = checkdnsrr($domain, 'MX') || checkdnsrr($domain, 'A');
+            }
+        }
 
-	/**
-	 * Returns the JavaScript needed for performing client-side validation.
-	 * @param \yii\base\Model $object the data object being validated
-	 * @param string $attribute the name of the attribute to be validated.
-	 * @return string the client-side validation script.
-	 */
-	public function clientValidateAttribute($object, $attribute)
-	{
-		$options = array(
-			'pattern' => new JsExpression($this->pattern),
-			'fullPattern' => new JsExpression($this->fullPattern),
-			'allowName' => $this->allowName,
-			'message' => Html::encode(strtr($this->message, array(
-				'{attribute}' => $object->getAttributeLabel($attribute),
-				'{value}' => $object->$attribute,
-			))),
-		);
-		if ($this->skipOnEmpty) {
-			$options['skipOnEmpty'] = 1;
-		}
+        return $valid ? null : [$this->message, []];
+    }
 
-		return 'yii.validation.email(value, messages, ' . Json::encode($options) . ');';
-	}
+    /**
+     * @inheritdoc
+     */
+    public function clientValidateAttribute($model, $attribute, $view)
+    {
+        $options = [
+            'pattern' => new JsExpression($this->pattern),
+            'fullPattern' => new JsExpression($this->fullPattern),
+            'allowName' => $this->allowName,
+            'message' => Yii::$app->getI18n()->format($this->message, [
+                'attribute' => $model->getAttributeLabel($attribute),
+            ], Yii::$app->language),
+            'enableIDN' => (boolean) $this->enableIDN,
+        ];
+        if ($this->skipOnEmpty) {
+            $options['skipOnEmpty'] = 1;
+        }
+
+        ValidationAsset::register($view);
+        if ($this->enableIDN) {
+            PunycodeAsset::register($view);
+        }
+
+        return 'yii.validation.email(value, messages, ' . Json::encode($options) . ');';
+    }
 }

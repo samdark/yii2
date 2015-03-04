@@ -15,12 +15,11 @@ namespace yii\base;
  */
 class InvalidRouteException extends UserException
 {
-	/**
-	 * @return string the user-friendly name of this exception
-	 */
-	public function getName()
-	{
-		return \Yii::t('yii|Invalid Route');
-	}
+    /**
+     * @return string the user-friendly name of this exception
+     */
+    public function getName()
+    {
+        return 'Invalid Route';
+    }
 }
-

@@ -9,7 +9,6 @@ namespace yii\validators;
 
 use Yii;
 use yii\base\InvalidConfigException;
-use yii\helpers\Html;
 
 /**
  * RangeValidator validates that the attribute value is among a list of values.
@@ -23,84 +22,85 @@ use yii\helpers\Html;
  */
 class RangeValidator extends Validator
 {
-	/**
-	 * @var array list of valid values that the attribute value should be among
-	 */
-	public $range;
-	/**
-	 * @var boolean whether the comparison is strict (both type and value must be the same)
-	 */
-	public $strict = false;
-	/**
-	 * @var boolean whether to invert the validation logic. Defaults to false. If set to true,
-	 * the attribute value should NOT be among the list of values defined via [[range]].
-	 **/
- 	public $not = false;
+    /**
+     * @var array list of valid values that the attribute value should be among
+     */
+    public $range;
+    /**
+     * @var boolean whether the comparison is strict (both type and value must be the same)
+     */
+    public $strict = false;
+    /**
+     * @var boolean whether to invert the validation logic. Defaults to false. If set to true,
+     * the attribute value should NOT be among the list of values defined via [[range]].
+     */
+    public $not = false;
+    /**
+     * @var boolean whether to allow array type attribute.
+     */
+    public $allowArray = false;
 
-	/**
-	 * Initializes the validator.
-	 * @throws InvalidConfigException if [[range]] is not set.
-	 */
-	public function init()
-	{
-		parent::init();
-		if (!is_array($this->range)) {
-			throw new InvalidConfigException('The "range" property must be set.');
-		}
-		if ($this->message === null) {
-			$this->message = Yii::t('yii|{attribute} is invalid.');
-		}
-	}
 
-	/**
-	 * Validates the attribute of the object.
-	 * If there is any error, the error message is added to the object.
-	 * @param \yii\base\Model $object the object being validated
-	 * @param string $attribute the attribute being validated
-	 */
-	public function validateAttribute($object, $attribute)
-	{
-		$value = $object->$attribute;
-		if (!$this->validateValue($value)) {
-			$this->addError($object, $attribute, $this->message);
-		}
-	}
+    /**
+     * @inheritdoc
+     */
+    public function init()
+    {
+        parent::init();
+        if (!is_array($this->range)) {
+            throw new InvalidConfigException('The "range" property must be set.');
+        }
+        if ($this->message === null) {
+            $this->message = Yii::t('yii', '{attribute} is invalid.');
+        }
+    }
 
-	/**
-	 * Validates the given value.
-	 * @param mixed $value the value to be validated.
-	 * @return boolean whether the value is valid.
-	 */
-	public function validateValue($value)
-	{
-		return !$this->not && in_array($value, $this->range, $this->strict)
-			|| $this->not && !in_array($value, $this->range, $this->strict);
-	}
+    /**
+     * @inheritdoc
+     */
+    protected function validateValue($value)
+    {
+        if (!$this->allowArray && is_array($value)) {
+            return [$this->message, []];
+        }
 
-	/**
-	 * Returns the JavaScript needed for performing client-side validation.
-	 * @param \yii\base\Model $object the data object being validated
-	 * @param string $attribute the name of the attribute to be validated.
-	 * @return string the client-side validation script.
-	 */
-	public function clientValidateAttribute($object, $attribute)
-	{
-		$range = array();
-		foreach ($this->range as $value) {
-			$range[] = (string)$value;
-		}
-		$options = array(
-			'range' => $range,
-			'not' => $this->not,
-			'message' => Html::encode(strtr($this->message, array(
-				'{attribute}' => $object->getAttributeLabel($attribute),
-				'{value}' => $object->$attribute,
-			))),
-		);
-		if ($this->skipOnEmpty) {
-			$options['skipOnEmpty'] = 1;
-		}
+        $in = true;
 
-		return 'yii.validation.range(value, messages, ' . json_encode($options) . ');';
-	}
+        foreach ((is_array($value) ? $value : [$value]) as $v) {
+            if (!in_array($v, $this->range, $this->strict)) {
+                $in = false;
+                break;
+            }
+        }
+
+        return $this->not !== $in ? null : [$this->message, []];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function clientValidateAttribute($model, $attribute, $view)
+    {
+        $range = [];
+        foreach ($this->range as $value) {
+            $range[] = (string) $value;
+        }
+        $options = [
+            'range' => $range,
+            'not' => $this->not,
+            'message' => Yii::$app->getI18n()->format($this->message, [
+                'attribute' => $model->getAttributeLabel($attribute),
+            ], Yii::$app->language),
+        ];
+        if ($this->skipOnEmpty) {
+            $options['skipOnEmpty'] = 1;
+        }
+        if ($this->allowArray) {
+            $options['allowArray'] = 1;
+        }
+
+        ValidationAsset::register($view);
+
+        return 'yii.validation.range(value, messages, ' . json_encode($options, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . ');';
+    }
 }

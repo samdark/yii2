@@ -1,262 +1,186 @@
-CREATE TABLE users
-(
-	id INTEGER NOT NULL PRIMARY KEY,
-	username VARCHAR(128) NOT NULL,
-	password VARCHAR(128) NOT NULL,
-	email VARCHAR(128) NOT NULL
+/**
+ * This is the database schema for testing Sqlite support of Yii DAO and Active Record.
+ * The database setup in config.php is required to perform then relevant tests:
+ */
+
+DROP TABLE IF EXISTS "composite_fk";
+DROP TABLE IF EXISTS "order_item";
+DROP TABLE IF EXISTS "order_item_with_null_fk";
+DROP TABLE IF EXISTS "item";
+DROP TABLE IF EXISTS "order";
+DROP TABLE IF EXISTS "order_with_null_fk";
+DROP TABLE IF EXISTS "category";
+DROP TABLE IF EXISTS "customer";
+DROP TABLE IF EXISTS "profile";
+DROP TABLE IF EXISTS "type";
+DROP TABLE IF EXISTS "null_values";
+DROP TABLE IF EXISTS "animal";
+
+CREATE TABLE "profile" (
+  id INTEGER NOT NULL,
+  description varchar(128) NOT NULL,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO users(id,username,password,email) VALUES (1,'user1','pass1','email1');
-INSERT INTO users(id,username,password,email) VALUES (2,'user2','pass2','email2');
-INSERT INTO users(id,username,password,email) VALUES (3,'user3','pass3','email3');
-INSERT INTO users(id,username,password,email) VALUES (4,'user4','pass4','email4');
-
-CREATE TABLE groups
-(
-	id INTEGER NOT NULL PRIMARY KEY,
-	name VARCHAR(128) NOT NULL
+CREATE TABLE "customer" (
+  id INTEGER NOT NULL,
+  email varchar(128) NOT NULL,
+  name varchar(128),
+  address text,
+  status INTEGER DEFAULT 0,
+  profile_id INTEGER,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO groups(id,name) VALUES (1,'group1');
-INSERT INTO groups(id,name) VALUES (2,'group2');
-INSERT INTO groups(id,name) VALUES (3,'group3');
-INSERT INTO groups(id,name) VALUES (4,'group4');
-INSERT INTO groups(id,name) VALUES (5,'group5');
-INSERT INTO groups(id,name) VALUES (6,'group6');
-
-CREATE TABLE groups_descriptions
-(
-	group_id INTEGER NOT NULL PRIMARY KEY,
-	name VARCHAR(128) NOT NULL
+CREATE TABLE "category" (
+  id INTEGER NOT NULL,
+  name varchar(128) NOT NULL,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO groups_descriptions(group_id,name) VALUES (1,'room1');
-INSERT INTO groups_descriptions(group_id,name) VALUES (2,'room2');
-INSERT INTO groups_descriptions(group_id,name) VALUES (3,'room3');
-INSERT INTO groups_descriptions(group_id,name) VALUES (4,'room4');
-
-CREATE TABLE roles
-(
-	user_id INTEGER NOT NULL,
-	group_id INTEGER NOT NULL,
-	name VARCHAR(128) NOT NULL,
-	PRIMARY KEY(user_id,group_id)
+CREATE TABLE "item" (
+  id INTEGER NOT NULL,
+  name varchar(128) NOT NULL,
+  category_id INTEGER NOT NULL,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO roles(user_id,group_id,name) VALUES (1,1,'dev');
-INSERT INTO roles(user_id,group_id,name) VALUES (1,2,'user');
-INSERT INTO roles(user_id,group_id,name) VALUES (2,1,'dev');
-INSERT INTO roles(user_id,group_id,name) VALUES (2,3,'user');
-
-CREATE TABLE mentorships
-(
-	teacher_id INTEGER NOT NULL,
-	student_id INTEGER NOT NULL,
-	progress VARCHAR(128) NOT NULL,
-	PRIMARY KEY(teacher_id,student_id)
+CREATE TABLE "order" (
+  id INTEGER NOT NULL,
+  customer_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  total decimal(10,0) NOT NULL,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO mentorships(teacher_id,student_id,progress) VALUES (1,3,'good');
-INSERT INTO mentorships(teacher_id,student_id,progress) VALUES (2,4,'average');
-
-CREATE TABLE profiles
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	first_name VARCHAR(128) NOT NULL,
-	last_name VARCHAR(128) NOT NULL,
-	user_id INTEGER NOT NULL,
-	CONSTRAINT FK_profile_user FOREIGN KEY (user_id)
-		REFERENCES users (id) ON DELETE CASCADE ON UPDATE RESTRICT
+CREATE TABLE "order_with_null_fk" (
+  id INTEGER NOT NULL,
+  customer_id INTEGER,
+  created_at INTEGER NOT NULL,
+  total decimal(10,0) NOT NULL,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO profiles (first_name, last_name, user_id) VALUES ('first 1','last 1',1);
-INSERT INTO profiles (first_name, last_name, user_id) VALUES ('first 2','last 2',2);
-
-CREATE TABLE posts
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	title VARCHAR(128) NOT NULL,
-	create_time TIMESTAMP NOT NULL,
-	author_id INTEGER NOT NULL,
-	content TEXT,
-	CONSTRAINT FK_post_author FOREIGN KEY (author_id)
-		REFERENCES users (id) ON DELETE CASCADE ON UPDATE RESTRICT
+CREATE TABLE "order_item" (
+  order_id INTEGER NOT NULL,
+  item_id INTEGER NOT NULL,
+  quantity INTEGER NOT NULL,
+  subtotal decimal(10,0) NOT NULL,
+  PRIMARY KEY (order_id, item_id)
 );
 
-INSERT INTO posts (title, create_time, author_id, content) VALUES ('post 1',100000,1,'content 1');
-INSERT INTO posts (title, create_time, author_id, content) VALUES ('post 2',100001,2,'content 2');
-INSERT INTO posts (title, create_time, author_id, content) VALUES ('post 3',100002,2,'content 3');
-INSERT INTO posts (title, create_time, author_id, content) VALUES ('post 4',100003,2,'content 4');
-INSERT INTO posts (title, create_time, author_id, content) VALUES ('post 5',100004,3,'content 5');
-
-
-CREATE TABLE posts_nofk
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	title VARCHAR(128) NOT NULL,
-	create_time TIMESTAMP NOT NULL,
-	author_id INTEGER NOT NULL,
-	content TEXT
+CREATE TABLE "order_item_with_null_fk" (
+  order_id INTEGER,
+  item_id INTEGER,
+  quantity INTEGER NOT NULL,
+  subtotal decimal(10,0) NOT NULL
 );
 
-INSERT INTO posts_nofk (title, create_time, author_id, content) VALUES ('post 1',100000,1,'content 1');
-INSERT INTO posts_nofk (title, create_time, author_id, content) VALUES ('post 2',100001,2,'content 2');
-INSERT INTO posts_nofk (title, create_time, author_id, content) VALUES ('post 3',100002,2,'content 3');
-INSERT INTO posts_nofk (title, create_time, author_id, content) VALUES ('post 4',100003,2,'content 4');
-INSERT INTO posts_nofk (title, create_time, author_id, content) VALUES ('post 5',100004,3,'content 5');
-
-
-CREATE TABLE comments
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	content TEXT NOT NULL,
-	post_id INTEGER NOT NULL,
-	author_id INTEGER NOT NULL,
-	CONSTRAINT FK_post_comment FOREIGN KEY (post_id)
-		REFERENCES posts (id) ON DELETE CASCADE ON UPDATE RESTRICT,
-	CONSTRAINT FK_user_comment FOREIGN KEY (author_id)
-		REFERENCES users (id) ON DELETE CASCADE ON UPDATE RESTRICT
+CREATE TABLE "composite_fk" (
+  id int(11) NOT NULL,
+  order_id int(11) NOT NULL,
+  item_id int(11) NOT NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT FK_composite_fk_order_item FOREIGN KEY (order_id, item_id) REFERENCES "order_item" (order_id, item_id) ON DELETE CASCADE
 );
 
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 1',1, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 2',1, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 3',1, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 4',2, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 5',2, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 6',3, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 7',3, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 8',3, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 9',3, 2);
-INSERT INTO comments (content, post_id, author_id) VALUES ('comment 10',5, 3);
-
-CREATE TABLE categories
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	name VARCHAR(128) NOT NULL,
-	parent_id INTEGER,
-	CONSTRAINT FK_category_category FOREIGN KEY (parent_id)
-		REFERENCES categories (id) ON DELETE CASCADE ON UPDATE RESTRICT
+CREATE TABLE "null_values" (
+  id INTEGER UNSIGNED PRIMARY KEY NOT NULL,
+  var1 INTEGER UNSIGNED,
+  var2 INTEGER,
+  var3 INTEGER DEFAULT NULL,
+  stringcol VARCHAR(32) DEFAULT NULL
 );
 
-INSERT INTO categories (name, parent_id) VALUES ('cat 1',NULL);
-INSERT INTO categories (name, parent_id) VALUES ('cat 2',NULL);
-INSERT INTO categories (name, parent_id) VALUES ('cat 3',NULL);
-INSERT INTO categories (name, parent_id) VALUES ('cat 4',1);
-INSERT INTO categories (name, parent_id) VALUES ('cat 5',1);
-INSERT INTO categories (name, parent_id) VALUES ('cat 6',5);
-INSERT INTO categories (name, parent_id) VALUES ('cat 7',5);
-
-CREATE TABLE post_category
-(
-	category_id INTEGER NOT NULL,
-	post_id INTEGER NOT NULL,
-	PRIMARY KEY (category_id, post_id),
-	CONSTRAINT FK_post_category_post FOREIGN KEY (post_id)
-		REFERENCES posts (id) ON DELETE CASCADE ON UPDATE RESTRICT,
-	CONSTRAINT FK_post_category_category FOREIGN KEY (category_id)
-		REFERENCES categories (id) ON DELETE CASCADE ON UPDATE RESTRICT
+CREATE TABLE "type" (
+  int_col INTEGER NOT NULL,
+  int_col2 INTEGER DEFAULT '1',
+  smallint_col SMALLINT(1) DEFAULT '1',
+  char_col char(100) NOT NULL,
+  char_col2 varchar(100) DEFAULT 'something',
+  char_col3 text,
+  float_col double(4,3) NOT NULL,
+  float_col2 double DEFAULT '1.23',
+  blob_col blob,
+  numeric_col decimal(5,2) DEFAULT '33.22',
+  time timestamp NOT NULL DEFAULT '2002-01-01 00:00:00',
+  bool_col tinyint(1) NOT NULL,
+  bool_col2 tinyint(1) DEFAULT '1',
+  ts_default TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO post_category (category_id, post_id) VALUES (1,1);
-INSERT INTO post_category (category_id, post_id) VALUES (2,1);
-INSERT INTO post_category (category_id, post_id) VALUES (3,1);
-INSERT INTO post_category (category_id, post_id) VALUES (4,2);
-INSERT INTO post_category (category_id, post_id) VALUES (1,2);
-INSERT INTO post_category (category_id, post_id) VALUES (1,3);
-
-CREATE TABLE orders
-(
-	key1 INTEGER NOT NULL,
-	key2 INTEGER NOT NULL,
-	name VARCHAR(128),
-	PRIMARY KEY (key1, key2)
+CREATE TABLE "animal" (
+  id INTEGER NOT NULL,
+  type VARCHAR(255) NOT NULL,
+  PRIMARY KEY (id)
 );
 
-INSERT INTO orders (key1,key2,name) VALUES (1,2,'order 12');
-INSERT INTO orders (key1,key2,name) VALUES (1,3,'order 13');
-INSERT INTO orders (key1,key2,name) VALUES (2,1,'order 21');
-INSERT INTO orders (key1,key2,name) VALUES (2,2,'order 22');
+INSERT INTO "animal" ("type") VALUES ('yiiunit\data\ar\Cat');
+INSERT INTO "animal" ("type") VALUES ('yiiunit\data\ar\Dog');
 
-CREATE TABLE items
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	name VARCHAR(128),
-	col1 INTEGER NOT NULL,
-	col2 INTEGER NOT NULL,
-	CONSTRAINT FK_order_item FOREIGN KEY (col1,col2)
-		REFERENCES orders (key1,key2) ON DELETE CASCADE ON UPDATE RESTRICT
+INSERT INTO "profile" (description) VALUES ('profile customer 1');
+INSERT INTO "profile" (description) VALUES ('profile customer 3');
+
+INSERT INTO "customer" (email, name, address, status, profile_id) VALUES ('user1@example.com', 'user1', 'address1', 1, 1);
+INSERT INTO "customer" (email, name, address, status) VALUES ('user2@example.com', 'user2', 'address2', 1);
+INSERT INTO "customer" (email, name, address, status, profile_id) VALUES ('user3@example.com', 'user3', 'address3', 2, 2);
+
+INSERT INTO "category" (name) VALUES ('Books');
+INSERT INTO "category" (name) VALUES ('Movies');
+
+INSERT INTO "item" (name, category_id) VALUES ('Agile Web Application Development with Yii1.1 and PHP5', 1);
+INSERT INTO "item" (name, category_id) VALUES ('Yii 1.1 Application Development Cookbook', 1);
+INSERT INTO "item" (name, category_id) VALUES ('Ice Age', 2);
+INSERT INTO "item" (name, category_id) VALUES ('Toy Story', 2);
+INSERT INTO "item" (name, category_id) VALUES ('Cars', 2);
+
+INSERT INTO "order" (customer_id, created_at, total) VALUES (1, 1325282384, 110.0);
+INSERT INTO "order" (customer_id, created_at, total) VALUES (2, 1325334482, 33.0);
+INSERT INTO "order" (customer_id, created_at, total) VALUES (2, 1325502201, 40.0);
+
+INSERT INTO "order_with_null_fk" (customer_id, created_at, total) VALUES (1, 1325282384, 110.0);
+INSERT INTO "order_with_null_fk" (customer_id, created_at, total) VALUES (2, 1325334482, 33.0);
+INSERT INTO "order_with_null_fk" (customer_id, created_at, total) VALUES (2, 1325502201, 40.0);
+
+INSERT INTO "order_item" (order_id, item_id, quantity, subtotal) VALUES (1, 1, 1, 30.0);
+INSERT INTO "order_item" (order_id, item_id, quantity, subtotal) VALUES (1, 2, 2, 40.0);
+INSERT INTO "order_item" (order_id, item_id, quantity, subtotal) VALUES (2, 4, 1, 10.0);
+INSERT INTO "order_item" (order_id, item_id, quantity, subtotal) VALUES (2, 5, 1, 15.0);
+INSERT INTO "order_item" (order_id, item_id, quantity, subtotal) VALUES (2, 3, 1, 8.0);
+INSERT INTO "order_item" (order_id, item_id, quantity, subtotal) VALUES (3, 2, 1, 40.0);
+
+INSERT INTO "order_item_with_null_fk" (order_id, item_id, quantity, subtotal) VALUES (1, 1, 1, 30.0);
+INSERT INTO "order_item_with_null_fk" (order_id, item_id, quantity, subtotal) VALUES (1, 2, 2, 40.0);
+INSERT INTO "order_item_with_null_fk" (order_id, item_id, quantity, subtotal) VALUES (2, 4, 1, 10.0);
+INSERT INTO "order_item_with_null_fk" (order_id, item_id, quantity, subtotal) VALUES (2, 5, 1, 15.0);
+INSERT INTO "order_item_with_null_fk" (order_id, item_id, quantity, subtotal) VALUES (2, 3, 1, 8.0);
+INSERT INTO "order_item_with_null_fk" (order_id, item_id, quantity, subtotal) VALUES (3, 2, 1, 40.0);
+
+/**
+ * (SqLite-)Database Schema for validator tests
+ */
+
+DROP TABLE IF EXISTS "validator_main";
+DROP TABLE IF EXISTS "validator_ref";
+
+CREATE TABLE "validator_main" (
+  id     INTEGER PRIMARY KEY ,
+  field1 VARCHAR(255)
 );
 
-INSERT INTO items (name,col1,col2) VALUES ('item 1',1,2);
-INSERT INTO items (name,col1,col2) VALUES ('item 2',1,2);
-INSERT INTO items (name,col1,col2) VALUES ('item 3',1,3);
-INSERT INTO items (name,col1,col2) VALUES ('item 4',2,2);
-INSERT INTO items (name,col1,col2) VALUES ('item 5',2,2);
-
-CREATE TABLE types
-(
-	int_col INT NOT NULL,
-	int_col2 INTEGER DEFAULT 1,
-	char_col CHAR(100) NOT NULL,
-	char_col2 VARCHAR(100) DEFAULT 'something',
-	char_col3 TEXT,
-	float_col REAL(4,3) NOT NULL,
-	float_col2 DOUBLE DEFAULT 1.23,
-	blob_col BLOB,
-	numeric_col NUMERIC(5,2) DEFAULT 33.22,
-	time TIMESTAMP DEFAULT 123,
-	bool_col BOOL NOT NULL,
-	bool_col2 BOOLEAN DEFAULT 1,
-	null_col INTEGER DEFAULT NULL
+CREATE TABLE "validator_ref" (
+  id      INTEGER PRIMARY KEY ,
+  a_field VARCHAR(255),
+  ref     INT(11)
 );
 
-CREATE TABLE Content
-(
-	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	class VARCHAR(128),
-	parentID INTEGER NOT NULL,
-	ownerID INTEGER NOT NULL,
-	title VARCHAR(100),
-	CONSTRAINT FK_content_user FOREIGN KEY (ownerID)
-		REFERENCES users (id) ON DELETE CASCADE ON UPDATE RESTRICT
-	CONSTRAINT FK_content_parent FOREIGN KEY (parentID)
-		REFERENCES Content (id) ON DELETE CASCADE ON UPDATE RESTRICT
-);
-
-INSERT INTO Content (class,parentID,ownerID,title) VALUES ('Article',-1,1,'article 1');
-INSERT INTO Content (class,parentID,ownerID,title) VALUES ('Article',-1,2,'article 2');
-INSERT INTO Content (class,parentID,ownerID,title) VALUES ('Comment',1,1,'comment 1');
-INSERT INTO Content (class,parentID,ownerID,title) VALUES ('Article',-1,2,'article 3');
-INSERT INTO Content (class,parentID,ownerID,title) VALUES ('Comment',4,2,'comment 2');
-INSERT INTO Content (class,parentID,ownerID,title) VALUES ('Comment',4,1,'comment 3');
-
-CREATE TABLE Article
-(
-	id INTEGER NOT NULL PRIMARY KEY,
-	authorID INTEGER NOT NULL,
-	body TEXT,
-	CONSTRAINT FK_article_content FOREIGN KEY (id)
-		REFERENCES Content (id) ON DELETE CASCADE ON UPDATE RESTRICT
-	CONSTRAINT FK_article_author FOREIGN KEY (authorID)
-		REFERENCES users (id) ON DELETE CASCADE ON UPDATE RESTRICT
-);
-
-INSERT INTO Article (id,authorID,body) VALUES (1,1,'content for article 1');
-INSERT INTO Article (id,authorID,body) VALUES (2,2,'content for article 2');
-INSERT INTO Article (id,authorID,body) VALUES (4,1,'content for article 3');
-
-CREATE TABLE Comment
-(
-	id INTEGER NOT NULL PRIMARY KEY,
-	authorID INTEGER NOT NULL,
-	body TEXT,
-	CONSTRAINT FK_comment_content FOREIGN KEY (id)
-		REFERENCES Content (id) ON DELETE CASCADE ON UPDATE RESTRICT
-	CONSTRAINT FK_article_author FOREIGN KEY (authorID)
-		REFERENCES users (id) ON DELETE CASCADE ON UPDATE RESTRICT
-);
-
-INSERT INTO Comment (id,authorID,body) VALUES (3,1,'content for comment 1');
-INSERT INTO Comment (id,authorID,body) VALUES (5,1,'content for comment 2');
-INSERT INTO Comment (id,authorID,body) VALUES (6,1,'content for comment 3');
-
+INSERT INTO "validator_main" (id, field1) VALUES (1, 'just a string1');
+INSERT INTO "validator_main" (id, field1) VALUES (2, 'just a string2');
+INSERT INTO "validator_main" (id, field1) VALUES (3, 'just a string3');
+INSERT INTO "validator_main" (id, field1) VALUES (4, 'just a string4');
+INSERT INTO "validator_ref" (id, a_field, ref) VALUES (1, 'ref_to_2', 2);
+INSERT INTO "validator_ref" (id, a_field, ref) VALUES (2, 'ref_to_2', 2);
+INSERT INTO "validator_ref" (id, a_field, ref) VALUES (3, 'ref_to_3', 3);
+INSERT INTO "validator_ref" (id, a_field, ref) VALUES (4, 'ref_to_4', 4);
+INSERT INTO "validator_ref" (id, a_field, ref) VALUES (5, 'ref_to_4', 4);
+INSERT INTO "validator_ref" (id, a_field, ref) VALUES (6, 'ref_to_5', 5);

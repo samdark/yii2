@@ -1,5 +1,6 @@
 <?php
 namespace yiiunit\data\base;
+
 use yii\base\Model;
 
 /**
@@ -7,33 +8,38 @@ use yii\base\Model;
  */
 class Speaker extends Model
 {
-	public $firstName;
-	public $lastName;
+    public $firstName;
+    public $lastName;
 
-	public $customLabel;
-	public $underscore_style;
+    public $customLabel;
+    public $underscore_style;
 
-	protected $protectedProperty;
-	private $_privateProperty;
+    protected $protectedProperty;
+    private $_privateProperty;
 
-	public function attributeLabels()
-	{
-		return array(
-			'customLabel' => 'This is the custom label',
-		);
-	}
+    public static $formName = 'Speaker';
 
-	public function rules()
-	{
-		return array(
+    public function formName()
+    {
+        return static::$formName;
+    }
 
-		);
-	}
+    public function attributeLabels()
+    {
+        return [
+            'customLabel' => 'This is the custom label',
+        ];
+    }
 
-	public function scenarios()
-	{
-		return array(
-			'test' => array('firstName', 'lastName', '!underscore_style'),
-		);
-	}
+    public function rules()
+    {
+        return [];
+    }
+
+    public function scenarios()
+    {
+        return [
+            'test' => ['firstName', 'lastName', '!underscore_style'],
+        ];
+    }
 }

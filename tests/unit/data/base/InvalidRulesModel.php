@@ -1,5 +1,6 @@
 <?php
 namespace yiiunit\data\base;
+
 use yii\base\Model;
 
 /**
@@ -7,11 +8,10 @@ use yii\base\Model;
  */
 class InvalidRulesModel extends Model
 {
-	public function rules()
-	{
-		return array(
-			array('test'),
-		);
-	}
-
+    public function rules()
+    {
+        return [
+            ['test'],
+        ];
+    }
 }

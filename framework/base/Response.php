@@ -8,52 +8,37 @@
 namespace yii\base;
 
 /**
+ * Response represents the response of an [[Application]] to a [[Request]].
+ *
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
 class Response extends Component
 {
-	/**
-	 * Starts output buffering
-	 */
-	public function beginOutput()
-	{
-		ob_start();
-		ob_implicit_flush(false);
-	}
+    /**
+     * @var integer the exit status. Exit statuses should be in the range 0 to 254.
+     * The status 0 means the program terminates successfully.
+     */
+    public $exitStatus = 0;
 
-	/**
-	 * Returns contents of the output buffer and discards it
-	 * @return string output buffer contents
-	 */
-	public function endOutput()
-	{
-		return ob_get_clean();
-	}
 
-	/**
-	 * Returns contents of the output buffer
-	 * @return string output buffer contents
-	 */
-	public function getOutput()
-	{
-		return ob_get_contents();
-	}
+    /**
+     * Sends the response to client.
+     */
+    public function send()
+    {
+    }
 
-	/**
-	 * Discards the output buffer
-	 * @param boolean $all if true recursively discards all output buffers used
-	 */
-	public function cleanOutput($all = true)
-	{
-		if ($all) {
-			for ($level = ob_get_level(); $level > 0; --$level) {
-				if (!@ob_end_clean()) {
-					ob_clean();
-				}
-			}
-		} else {
-			ob_end_clean();
-		}
-	}
+    /**
+     * Removes all existing output buffers.
+     */
+    public function clearOutputBuffers()
+    {
+        // the following manual level counting is to deal with zlib.output_compression set to On
+        for ($level = ob_get_level(); $level > 0; --$level) {
+            if (!@ob_end_clean()) {
+                ob_clean();
+            }
+        }
+    }
 }
