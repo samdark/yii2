@@ -4,8 +4,7 @@ Yii Framework 2 Change Log
 2.0.15 under development
 ------------------------
 
-- no changes in this release.
-
+- Bug #15688: Fixed possible SQL injection through `yii\db\ActiveRecord::findOne()`, `findAll()`. CVE ID will be assigned soon (analitic1983, silverfire)
 
 2.0.14 February 18, 2018
 ------------------------
