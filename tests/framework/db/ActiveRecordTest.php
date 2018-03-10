@@ -1651,11 +1651,18 @@ abstract class ActiveRecordTest extends DatabaseTestCase
     public function illegalValuesForFindByCondition()
     {
         return [
-            [ ['id' => ['`id`=`id` and 1' => 1]] ],
-            [ ['id' => ['`id`=`id` and 1' => 1]] ],
+            [['id' => ['`id`=`id` and 1' => 1]]],
+            [['id' => [
+                'legal' => 1,
+                '`id`=`id` and 1' => 1,
+            ]]],
+            [['id' => [
+                'nested_illegal' => [
+                    'false or 1=' => 1
+                ]
+            ]]],
         ];
     }
-
 
     /**
      * @dataProvider illegalValuesForFindByCondition

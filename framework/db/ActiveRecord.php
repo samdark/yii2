@@ -194,10 +194,10 @@ class ActiveRecord extends BaseActiveRecord
     /**
      * Filters array condition before its assignation to a Query filter
      *
-     * @param $condition
-     * @return array
+     * @param array|string|int $condition
+     * @return array|string|int
      * @throws InvalidArgumentException in case array contains not safe values
-     * @since 2.0.14.1
+     * @since 2.0.14.2
      * @internal
      */
     protected static function filterCondition($condition)

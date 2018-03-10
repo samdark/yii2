@@ -150,10 +150,10 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
     /**
      * Filters array condition before its assignation to a Query filter
      *
-     * @param $condition
-     * @return array
+     * @param array|string|int $condition
+     * @return array|string|int
      * @throws InvalidArgumentException in case array contains not safe values
-     * @since 2.0.14.1
+     * @since 2.0.14.2
      * @internal
      */
     protected static function filterCondition($condition)
@@ -164,7 +164,7 @@ abstract class BaseActiveRecord extends Model implements ActiveRecordInterface
 
         $result = [];
         foreach ($condition as $key => $item) {
-            if (is_string($key) && $key !== preg_replace('/([^\w\d_-]|(--))/', '', $key)) {
+            if (is_string($key) && $key !== preg_replace('/([^\w\d_$-]|(--))/', '', $key)) {
                 throw new InvalidArgumentException('Key "' . $key . '" is not a column name and can not be used as a filter');
             }
             $result[$key] = self::filterCondition($item);
