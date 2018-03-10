@@ -5,21 +5,22 @@ This file contains the upgrade notes for Yii 2.0. These notes highlight changes 
 could break your application when you upgrade Yii from one version to another.
 Even though we try to ensure backwards compabitilty (BC) as much as possible, sometimes
 it is not possible or very complicated to avoid it and still create a good solution to
-a problem. You may also want to check out the [versioning policy](https://github.com/yiisoft/yii2/blob/master/docs/internals/versions.md) for further details.
+a problem. You may also want to check out the [versioning policy](https://github.com/yiisoft/yii2/blob/master/docs/internals/versions.md)
+for further details.
 
 Upgrading in general is as simple as updating your dependency in your composer.json and
 running `composer update`. In a big application however there may be more things to consider,
 which are explained in the following.
 
-> Note: This document assumes you have composer [installed globally](http://www.yiiframework.com/doc-2.0/guide-start-installation.html#installing-composer) so that you can run the `composer` command. If you have a `composer.phar` file
-inside of your project you need to replace `composer` with `php composer.phar` in the following.
+> Note: This document assumes you have composer [installed globally](http://www.yiiframework.com/doc-2.0/guide-start-installation.html#installing-composer)
+so that you can run the `composer` command. If you have a `composer.phar` file inside of your project you need to
+replace `composer` with `php composer.phar` in the following.
 
 > Tip: Upgrading dependencies of a complex software project always comes at the risk of breaking something, so make sure
 you have a backup (you should be doing this anyway ;) ).
 
-Before upgrading, make sure you have a global installation of the latest version of the
-[composer asset plugin](https://github.com/fxpio/composer-asset-plugin)
-as well as a stable version of Composer:
+In case you use [composer asset plugin](https://github.com/fxpio/composer-asset-plugin) instead of the currently recommended
+[asset-packagist.org](https://asset-packagist.org) to install Bower and NPM assets, make sure it is upgraded to the latest version as well. To ensure best stability you should also upgrade composer in this step:
 
     composer self-update
     composer global require "fxp/composer-asset-plugin:^1.4.1" --no-plugins
@@ -50,6 +51,7 @@ if you want to upgrade from version A to version C and there is
 version B between A and C, you need to follow the instructions
 for both A and B.
 
+
 Upgrade from Yii 2.0.13
 -----------------------
 
@@ -63,8 +65,15 @@ Upgrade from Yii 2.0.13
   introduced methods to retrieve the expression content.
 
 * Added JSON support for PostgreSQL and MySQL as well as Arrays support for PostgreSQL in ActiveRecord layer.
-  In case you already implemented such support yourself, please switch to Yii implementation. Active Record will
-  return arrays instead of strings after data population and expects arrays to be assigned for further saving them into database.
+  In case you already implemented such support yourself, please switch to Yii implementation.
+  * For MySQL JSON and PgSQL JSON & JSONB columns Active Record will return decoded JSON (that can be either array or scalar) after data population
+  and expects arrays or scalars to be assigned for further saving them into a database.
+  * For PgSQL Array columns Active Record will return `yii\db\ArrayExpression` object that acts as an array
+  (it implements `ArrayAccess`, `Traversable` and `Countable` interfaces) and expects array or `yii\db\ArrayExpression` to be
+  assigned for further saving it into the database.
+
+  In case this change makes the upgrade process to Yii 2.0.14 too hard in your project, you can [switch off the described behavior](https://github.com/yiisoft/yii2/issues/15716#issuecomment-368143206)
+  Then you can take your time to change your code and then re-enable arrays or JSON support.
 
 * `yii\db\PdoValue` class has been introduced to replace a special syntax that was used to declare PDO parameter type 
   when binding parameters to an SQL command, for example: `['value', \PDO::PARAM_STR]`.

@@ -8,9 +8,11 @@
 namespace yiiunit\framework\db\mysql;
 
 use yii\base\DynamicModel;
+use yii\db\Expression;
 use yii\db\JsonExpression;
 use yii\db\Query;
 use yii\db\Schema;
+use yii\helpers\Json;
 
 /**
  * @group db
@@ -208,6 +210,36 @@ class QueryBuilderTest extends \yiiunit\framework\db\QueryBuilderTest
                 ['=', 'jsoncol', new JsonExpression((new Query())->select('params')->from('user')->where(['id' => 1]), 'jsonb')],
                 '[[jsoncol]] = (SELECT [[params]] FROM [[user]] WHERE [[id]]=:qp0)', [':qp0' => 1]
             ],
+            'nested and combined json expression' => [
+                ['=', 'jsoncol', new JsonExpression(new JsonExpression(['a' => 1, 'b' => 2, 'd' => new JsonExpression(['e' => 3])]))],
+                "[[jsoncol]] = :qp0", [':qp0' => '{"a":1,"b":2,"d":{"e":3}}']
+            ],
+            'search by property in JSON column (issue #15838)' => [
+                ['=', new Expression("(jsoncol->>'$.someKey')"), '42'],
+                "(jsoncol->>'$.someKey') = :qp0", [':qp0' => 42]
+            ]
         ]);
+    }
+
+    public function updateProvider()
+    {
+        $items = parent::updateProvider();
+
+        $items[] = [
+            'profile',
+            [
+                'description' => new JsonExpression(['abc' => 'def', 123, null]),
+            ],
+            [
+                'id' => 1,
+            ],
+            $this->replaceQuotes('UPDATE [[profile]] SET [[description]]=:qp0 WHERE [[id]]=:qp1'),
+            [
+                ':qp0' => '{"abc":"def","0":123,"1":null}',
+                ':qp1' => 1,
+            ],
+        ];
+
+        return $items;
     }
 }

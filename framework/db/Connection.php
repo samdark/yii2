@@ -136,19 +136,19 @@ use yii\caching\CacheInterface;
 class Connection extends Component
 {
     /**
-     * @event Event an event that is triggered after a DB connection is established
+     * @event [[yii\base\Event|Event]] an event that is triggered after a DB connection is established
      */
     const EVENT_AFTER_OPEN = 'afterOpen';
     /**
-     * @event Event an event that is triggered right before a top-level transaction is started
+     * @event [[yii\base\Event|Event]] an event that is triggered right before a top-level transaction is started
      */
     const EVENT_BEGIN_TRANSACTION = 'beginTransaction';
     /**
-     * @event Event an event that is triggered right after a top-level transaction is committed
+     * @event [[yii\base\Event|Event]] an event that is triggered right after a top-level transaction is committed
      */
     const EVENT_COMMIT_TRANSACTION = 'commitTransaction';
     /**
-     * @event Event an event that is triggered right after a top-level transaction is rolled back
+     * @event [[yii\base\Event|Event]] an event that is triggered right after a top-level transaction is rolled back
      */
     const EVENT_ROLLBACK_TRANSACTION = 'rollbackTransaction';
 
@@ -328,9 +328,10 @@ class Connection extends Component
      */
     public $enableSavepoint = true;
     /**
-     * @var CacheInterface|string the cache object or the ID of the cache application component that is used to store
+     * @var CacheInterface|string|false the cache object or the ID of the cache application component that is used to store
      * the health status of the DB servers specified in [[masters]] and [[slaves]].
      * This is used only when read/write splitting is enabled or [[masters]] is not empty.
+     * Set boolean `false` to disabled server status caching.
      */
     public $serverStatusCache = 'cache';
     /**
@@ -729,7 +730,7 @@ class Connection extends Component
 
     /**
      * Returns the currently active transaction.
-     * @return Transaction the currently active transaction. Null if no active transaction.
+     * @return Transaction|null the currently active transaction. Null if no active transaction.
      */
     public function getTransaction()
     {
